@@ -9,32 +9,133 @@
         body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; color: #1d1d1f; display: flex; justify-content: center; }
         .app-container { width: 90%; max-width: 500px; padding-top: 10vh; }
         .search-box { position: relative; margin-bottom: 50px; }
-        #keywordInput { 
-            width: 100%; padding: 18px 25px; border-radius: 40px; border: none; 
-            background: white; box-shadow: 0 10px 30px rgba(0,0,0,0.05); font-size: 17px; outline: none; box-sizing: border-box;
-        }
-        .search-btn { 
-            position: absolute; right: 8px; top: 7px; background: var(--primary); 
-            color: white; border: none; padding: 11px 24px; border-radius: 30px; font-weight: 600; cursor: pointer; 
-        }
-        .scene-entry { 
-            background: white; padding: 25px; border-radius: 20px; margin-bottom: 20px;
-            display: flex; align-items: center; cursor: pointer; transition: 0.3s;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
-        }
-        .scene-entry:active { transform: scale(0.98); background: #f9f9f9; }
+        #keywordInput { width: 100%; padding: 18px 25px; border-radius: 40px; border: none; background: white; box-shadow: 0 10px 30px rgba(0,0,0,0.05); font-size: 17px; outline: none; box-sizing: border-box; }
+        .search-btn { position: absolute; right: 8px; top: 7px; background: var(--primary); color: white; border: none; padding: 11px 24px; border-radius: 30px; font-weight: 600; cursor: pointer; }
+        .scene-entry { background: white; padding: 25px; border-radius: 20px; margin-bottom: 20px; display: flex; align-items: center; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.03); -webkit-tap-highlight-color: transparent; }
+        .scene-entry:active { opacity: 0.7; }
         .scene-entry .icon { font-size: 30px; margin-right: 20px; }
         .scene-entry .text { font-size: 18px; font-weight: 600; }
         .action-list { display: grid; grid-template-columns: 1fr; gap: 12px; }
-        .action-item { 
-            background: white; padding: 18px 25px; border-radius: 15px; 
-            font-size: 16px; font-weight: 500; cursor: pointer; display: flex; justify-content: space-between;
+        .action-item { background: white; padding: 18px 25px; border-radius: 15px; font-size: 16px; font-weight: 500; cursor: pointer; display: flex; justify-content: space-between; }
+        .action-item:active { background: #f0f0f0; }
+        .phrase-card { background: white; padding: 20px; border-radius: 20px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+        .back-btn { color: var(--primary); cursor: pointer; font-size: 14px; margin-bottom: 20px; display: inline-block; font-weight: 600; padding: 10px 0; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <h1 style="text-align:center; font-size:26px; margin-bottom:40px;">日语<span style="color:var(--primary)">搭配</span>联想家</h1>
+    
+    <div class="search-box">
+        <input type="text" id="keywordInput" placeholder="输入关键词...">
+        <button class="search-btn" onclick="doActionSearch()">联想</button>
+    </div>
+
+    <div id="page-1">
+        <div class="scene-entry" onclick="showActions('日常生活')">
+            <span class="icon">🏠</span><span class="text">日常生活</span>
+        </div>
+        <div class="scene-entry" onclick="showActions('工作场合')">
+            <span class="icon">💼</span><span class="text">工作场合</span>
+        </div>
+        <div class="scene-entry" onclick="showActions('旅行远足')">
+            <span class="icon">✈️</span><span class="text">旅行远足</span>
+        </div>
+    </div>
+
+    <div id="page-2" class="hidden">
+        <div class="back-btn" onclick="toPage(1)">← 返回主页</div>
+        <h2 id="scene-title"></h2>
+        <div id="action-container" class="action-list"></div>
+    </div>
+
+    <div id="page-3" class="hidden">
+        <div class="back-btn" onclick="toPage(2)">← 返回列表</div>
+        <div id="result-list"></div>
+    </div>
+</div>
+
+<script>
+    var API_KEY = 'sk-7d63bfe034c8430eb76bac0f9e00ce5b';
+    var API_URL = 'https://api.deepseek.com/chat/completions';
+    var currentAudio = null;
+
+    function toPage(num) {
+        document.getElementById('page-1').style.display = (num === 1 ? 'block' : 'none');
+        document.getElementById('page-2').style.display = (num === 2 ? 'block' : 'none');
+        document.getElementById('page-3').style.display = (num === 3 ? 'block' : 'none');
+    }
+
+    function showActions(scene) {
+        var SCENE_DATA = {
+            '日常生活': ['起床', '梳头', '穿衣服', '刷牙', '洗脸', '化妆', '洗澡', '做饭', '散步', '睡觉'],
+            '工作场合': ['开会', '出差', '写邮件', '打电话', '汇报', '加班', '面试', '请假', '接待', '辞职'],
+            '旅行远足': ['登机', '坐车', '野餐', '赏花', '拍照', '预订', '问路', '购物', '换钱', '退房']
+        };
+        var container = document.getElementById('action-container');
+        document.getElementById('scene-title').innerText = scene;
+        container.innerHTML = '';
+        var items = SCENE_DATA[scene];
+        for (var i = 0; i < items.length; i++) {
+            (function(act){
+                var div = document.createElement('div');
+                div.className = 'action-item';
+                div.innerHTML = '<span>' + act + '</span><span>→</span>';
+                div.onclick = function() { doActionSearch(act); };
+                container.appendChild(div);
+            })(items[i]);
         }
-        .phrase-card { 
-            background: white; padding: 20px; border-radius: 20px; margin-bottom: 12px; 
-            display: flex; justify-content: space-between; align-items: center;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.03); animation: fadeIn 0.4s ease;
+        toPage(2);
+    }
+
+    async function doActionSearch(manualWord) {
+        var word = manualWord || document.getElementById('keywordInput').value.trim();
+        if(!word) return;
+        toPage(3);
+        var list = document.getElementById('result-list');
+        list.innerHTML = '<div style="text-align:center; padding:50px; color:#8e8e93;">AI 正在分析地道搭配...</div>';
+
+        try {
+            var res = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API_KEY },
+                body: JSON.stringify({
+                    model: "deepseek-chat",
+                    messages: [
+                        {role: "system", content: "返回5个日语短语JSON数组:[{\"jp\":\"<ruby>汉<rt>かん</rt></ruby>\",\"zh\":\"翻译\"}]"},
+                        {role: "user", content: word}
+                    ]
+                })
+            });
+            var data = await res.json();
+            var phrases = JSON.parse(data.choices[0].message.content.replace(/```json|```/g, ''));
+            list.innerHTML = '';
+            phrases.forEach(function(p) {
+                var card = document.createElement('div');
+                card.className = 'phrase-card';
+                card.innerHTML = '<div><div style="font-size:18px; font-weight:600;">'+p.jp+'</div><div style="color:#888;">'+p.zh+'</div></div><div style="color:#ff5bec; font-size:24px;">▶</div>';
+                
+                var t = document.createElement('div');
+                t.innerHTML = p.jp;
+                var rts = t.querySelectorAll('rt');
+                for (var j = 0; j < rts.length; j++) { rts[j].parentNode.removeChild(rts[j]); }
+                var cleanText = t.innerText || t.textContent;
+                
+                card.onclick = function() { speak(cleanText); };
+                list.appendChild(card);
+            });
+        } catch (e) {
+            list.innerHTML = '<div style="padding:20px; color:red;">请求失败，请稍后刷新重试。</div>';
         }
+    }
+
+    function speak(text) {
+        if (currentAudio) { currentAudio.pause(); }
+        var url = 'https://fanyi.baidu.com/getvoice?lan=jp&pydown=0&tpl=6&text=' + encodeURIComponent(text);
+        currentAudio = new Audio(url);
+        currentAudio.play().cat        }
         .phrase-card div:last-child { cursor: pointer !important; user-select: none; }
         .back-btn { color: var(--primary); cursor: pointer; font-size: 14px; margin-bottom: 20px; display: inline-block; font-weight: 600; }
         .hidden { display: none; }
@@ -337,3 +438,4 @@
 </script>
 </body>
 </html>
+
