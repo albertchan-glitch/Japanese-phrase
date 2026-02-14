@@ -1,40 +1,149 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>日语搭配联想家</title>
     <style>
         :root { --primary: #ff5bec; --bg: #F5F5F7; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; color: #1d1d1f; display: flex; justify-content: center; }
+        body { font-family: sans-serif; background: var(--bg); margin: 0; color: #1d1d1f; display: flex; justify-content: center; }
         .app-container { width: 90%; max-width: 500px; padding-top: 10vh; }
         .search-box { position: relative; margin-bottom: 50px; }
         #keywordInput { width: 100%; padding: 18px 25px; border-radius: 40px; border: none; background: white; box-shadow: 0 10px 30px rgba(0,0,0,0.05); font-size: 17px; outline: none; box-sizing: border-box; }
         .search-btn { position: absolute; right: 8px; top: 7px; background: var(--primary); color: white; border: none; padding: 11px 24px; border-radius: 30px; font-weight: 600; cursor: pointer; }
         .scene-entry { background: white; padding: 25px; border-radius: 20px; margin-bottom: 20px; display: flex; align-items: center; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.03); -webkit-tap-highlight-color: transparent; }
-        .scene-entry:active { opacity: 0.7; }
+        .scene-entry:active { background: #f0f0f0; }
         .scene-entry .icon { font-size: 30px; margin-right: 20px; }
         .scene-entry .text { font-size: 18px; font-weight: 600; }
         .action-list { display: grid; grid-template-columns: 1fr; gap: 12px; }
         .action-item { background: white; padding: 18px 25px; border-radius: 15px; font-size: 16px; font-weight: 500; cursor: pointer; display: flex; justify-content: space-between; }
-        .action-item:active { background: #f0f0f0; }
         .phrase-card { background: white; padding: 20px; border-radius: 20px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
-        .back-btn { color: var(--primary); cursor: pointer; font-size: 14px; margin-bottom: 20px; display: inline-block; font-weight: 600; padding: 10px 0; }
-        .hidden { display: none; }
+        .back-btn { color: var(--primary); cursor: pointer; font-size: 14px; margin-bottom: 20px; display: inline-block; font-weight: 600; padding: 10px; }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
 <div class="app-container">
-    <h1 style="text-align:center; font-size:26px; margin-bottom:40px;">日语<span style="color:var(--primary)">搭配</span>联想家</h1>
+    <h1 style="text-align:center; font-size:26px; margin-bottom:40px;">日语搭配联想家</h1>
     
     <div class="search-box">
         <input type="text" id="keywordInput" placeholder="输入关键词...">
-        <button class="search-btn" onclick="doActionSearch()">联想</button>
+        <button class="search-btn" onclick="handleManualSearch()">联想</button>
     </div>
 
     <div id="page-1">
-        <div class="scene-entry" onclick="showActions('日常生活')">
+        <div class="scene-entry" onclick="handleSceneClick('日常生活')">
+            <span class="icon">🏠</span><span class="text">日常生活</span>
+        </div>
+        <div class="scene-entry" onclick="handleSceneClick('工作场合')">
+            <span class="icon">💼</span><span class="text">工作场合</span>
+        </div>
+        <div class="scene-entry" onclick="handleSceneClick('旅行远足')">
+            <span class="icon">✈️</span><span class="text">旅行远足</span>
+        </div>
+    </div>
+
+    <div id="page-2" class="hidden">
+        <div class="back-btn" onclick="goToPage(1)">← 返回主页</div>
+        <h2 id="scene-title"></h2>
+        <div id="action-container" class="action-list"></div>
+    </div>
+
+    <div id="page-3" class="hidden">
+        <div class="back-btn" onclick="goToPage(2)">← 返回列表</div>
+        <div id="result-list"></div>
+    </div>
+</div>
+
+<script>
+    // 使用 var 确保最强兼容性
+    var API_KEY = 'sk-7d63bfe034c8430eb76bac0f9e00ce5b';
+    var API_URL = 'https://api.deepseek.com/chat/completions';
+    var audioObj = null;
+
+    function goToPage(num) {
+        document.getElementById('page-1').classList.add('hidden');
+        document.getElementById('page-2').classList.add('hidden');
+        document.getElementById('page-3').classList.add('hidden');
+        document.getElementById('page-' + num).classList.remove('hidden');
+        window.scrollTo(0,0);
+    }
+
+    function handleSceneClick(sceneName) {
+        var data = {
+            '日常生活': ['起床', '梳头', '穿衣服', '刷牙', '洗脸', '化妆', '洗澡', '做饭', '散步', '睡觉'],
+            '工作场合': ['开会', '出差', '写邮件', '打电话', '汇报', '加班', '面试', '请假', '接待', '辞职'],
+            '旅行远足': ['登机', '坐车', '野餐', '赏花', '拍照', '预订', '问路', '购物', '换钱', '退房']
+        };
+        var actions = data[sceneName];
+        var container = document.getElementById('action-container');
+        document.getElementById('scene-title').innerText = sceneName;
+        container.innerHTML = '';
+        
+        for (var i = 0; i < actions.length; i++) {
+            var act = actions[i];
+            var item = document.createElement('div');
+            item.className = 'action-item';
+            item.innerHTML = '<span>' + act + '</span><span>→</span>';
+            // 移动端使用这种绑定方式最稳
+            item.setAttribute('onclick', "doFinalSearch('" + act + "')");
+            container.appendChild(item);
+        }
+        goToPage(2);
+    }
+
+    function handleManualSearch() {
+        var val = document.getElementById('keywordInput').value;
+        if(val) doFinalSearch(val);
+    }
+
+    function doFinalSearch(word) {
+        goToPage(3);
+        var list = document.getElementById('result-list');
+        list.innerHTML = '<div style="text-align:center; padding:50px; color:#999;">AI 正在联想...</div>';
+
+        // 改用 fetch 的普通写法，不使用 async/await
+        fetch(API_URL, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + API_KEY 
+            },
+            body: JSON.stringify({
+                model: "deepseek-chat",
+                messages: [
+                    {role: "system", content: "返回5个日语短语JSON数组:[{\"jp\":\"<ruby>汉<rt>かん</rt></ruby>\",\"zh\":\"翻译\"}]"},
+                    {role: "user", content: word}
+                ]
+            })
+        })
+        .then(function(response) { return response.json(); })
+        .then(function(resData) {
+            var raw = resData.choices[0].message.content.replace(/```json|```/g, '');
+            var phrases = JSON.parse(raw);
+            list.innerHTML = '';
+            
+            for (var j = 0; j < phrases.length; j++) {
+                var p = phrases[j];
+                var card = document.createElement('div');
+                card.className = 'phrase-card';
+                card.innerHTML = '<div><div style="font-size:18px; font-weight:bold;">'+p.jp+'</div><div style="color:#666; font-size:14px;">'+p.zh+'</div></div><div style="color:#ff5bec; font-size:24px;">▶</div>';
+                
+                // 提取发音文本
+                var tmp = document.createElement('div');
+                tmp.innerHTML = p.jp;
+                var rts = tmp.getElementsByTagName('rt');
+                while(rts.length > 0) { rts[0].parentNode.removeChild(rts[0]); }
+                var speechText = tmp.innerText || tmp.textContent;
+                
+                card.setAttribute('onclick', "playJap('" + speechText.replace(/'/g, "\\'") + "')");
+                list.appendChild(card);
+            }
+        })
+        .catch(function(err) {
+            list.innerHTML = '<div style="color:red; padding:20px;">加载失败，请刷新页面重试。</div>';
+               <div class="scene-entry" onclick="showActions('日常生活')">
             <span class="icon">🏠</span><span class="text">日常生活</span>
         </div>
         <div class="scene-entry" onclick="showActions('工作场合')">
@@ -438,4 +547,5 @@
 </script>
 </body>
 </html>
+
 
