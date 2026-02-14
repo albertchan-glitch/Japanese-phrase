@@ -194,15 +194,14 @@
         s.voice = jaVoice;
     }
 
-    s.rate = 0.9; // 稍微减慢语速，听得更清楚
+    s.rate = 0.9; // 稍微减慢语速
     window.speechSynthesis.speak(s);
 }
 
 // 补丁：解决某些手机浏览器语音包加载慢的问题
-window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
-
+if (typeof window !== 'undefined' && window.speechSynthesis) {
+    window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
 }
 </script>
 </body>
-
 </html>
