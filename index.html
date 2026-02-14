@@ -181,12 +181,25 @@
     }
 
     function speak(text) {
-    // 使用 Google 的在线 TTS 接口（需要梯子保持开启）
-    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=ja&client=tw-ob`;
+    // 停止之前正在播放的声音
+    if (window.currentAudio) {
+        window.currentAudio.pause();
+    }
+
+    // 使用一个非常稳定的日语在线发音接口 (来自词典接口，语速适中)
+    const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&le=jap`;
+    
     const audio = new Audio(url);
-    audio.play();
+    window.currentAudio = audio;
+    
+    audio.play().catch(e => {
+        console.log("播放失败，尝试备用方案...");
+        // 如果上面的不行，尝试系统自带（最后的保底）
+        const s = new SpeechSynthesisUtterance(text);
+        s.lang = 'ja-JP';
+        window.speechSynthesis.speak(s);
+    });
 }
 </script>
 </body>
 </html>
-
