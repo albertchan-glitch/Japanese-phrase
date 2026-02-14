@@ -181,45 +181,39 @@
     }
 
     function speak(text) {
-    // 1. 停止并销毁之前的音频对象，释放内存
+    // 1. 停止之前的声音（防止重叠）
     if (window.currentAudio) {
         window.currentAudio.pause();
-        window.currentAudio = null;
     }
 
-    // 2. 深度清洗文本：只保留汉字、假名、数字和常用标点
+    // 2. 极其重要：过滤掉 <ruby> 和 <rt> 标签
+    // 如果不加这一步，系统会连同拼音和 HTML 代码一起读出来
     let div = document.createElement("div");
     div.innerHTML = text;
+    // 移除所有注音（rt 标签内容）
     const rts = div.querySelectorAll('rt');
     rts.forEach(rt => rt.remove());
-    let pureText = div.innerText || div.textContent;
+    // 获取纯净的日语文本
+    const pureText = div.innerText || div.textContent;
 
-    // 清除换行、多余空格，以及一些可能干扰接口的特殊符号
-    pureText = pureText.replace(/[\r\n\t]/g, " ")
-                       .replace(/\s+/g, " ")
-                       .replace(/[()（）]/g, "") // 移除括号防止接口解析出错
-                       .trim();
-
-    if (!pureText) return;
-
-    // 3. 构建接口 URL
+    // 3. 使用有道国内直连接口 (le=jap 代表日语)
+    // 这是一个公开的音频流，不需要翻墙，全国直连
     const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(pureText)}&le=jap`;
     
-    // 4. 使用更加稳健的播放逻辑
-    const audio = new Audio();
-    audio.src = url;
+    const audio = new Audio(url);
     window.currentAudio = audio;
     
-    // 荣耀/移动端浏览器必须由用户触发，这里我们直接 play
+    // 4. 尝试播放
     const playPromise = audio.play();
     
     if (playPromise !== undefined) {
         playPromise.catch(error => {
-            console.error("播放失败:", error, "文本:", pureText);
-            // 最后的保底：如果云端接口真的挂了，尝试闪烁一下按钮提醒用户（可选）
+            console.log("播放被拦截，通常需要用户点击屏幕后才能出声");
+            // 这里不写 backup 了，防止它又跳回那个难听的系统中文音
         });
     }
 }
 </script>
 </body>
 </html>
+
