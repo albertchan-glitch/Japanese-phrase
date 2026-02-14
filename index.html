@@ -1,40 +1,142 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>日语搭配联想家</title>
-    <style>
-        :root { --primary: #ff5bec; --bg: #F5F5F7; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; color: #1d1d1f; display: flex; justify-content: center; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>日语搭配联想家</title>
+    <style>
+        :root { --primary: #ff5bec; --bg: #F5F5F7; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; color: #1d1d1f; display: flex; justify-content: center; }
+        .app-container { width: 90%; max-width: 500px; padding-top: 10vh; }
+        .search-box { position: relative; margin-bottom: 50px; }
+        #keywordInput { 
+            width: 100%; padding: 18px 25px; border-radius: 40px; border: none; 
+            background: white; box-shadow: 0 10px 30px rgba(0,0,0,0.05); font-size: 17px; outline: none; box-sizing: border-box;
+        }
+        .search-btn { 
+            position: absolute; right: 8px; top: 7px; background: var(--primary); 
+            color: white; border: none; padding: 11px 24px; border-radius: 30px; font-weight: 600; cursor: pointer; 
+        }
+        .scene-entry { 
+            background: white; padding: 25px; border-radius: 20px; margin-bottom: 20px;
+            display: flex; align-items: center; cursor: pointer; transition: 0.3s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+        }
+        .scene-entry:active { transform: scale(0.98); background: #f9f9f9; }
+        .scene-entry .icon { font-size: 30px; margin-right: 20px; }
+        .scene-entry .text { font-size: 18px; font-weight: 600; }
+        .action-list { display: grid; grid-template-columns: 1fr; gap: 12px; }
+        .action-item { 
+            background: white; padding: 18px 25px; border-radius: 15px; 
+            font-size: 16px; font-weight: 500; cursor: pointer; display: flex; justify-content: space-between;
+        }
+        .phrase-card { 
+            background: white; padding: 20px; border-radius: 20px; margin-bottom: 12px; 
+            display: flex; justify-content: space-between; align-items: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03); animation: fadeIn 0.4s ease;
+        }
+        .phrase-card div:last-child { cursor: pointer !important; user-select: none; }
+        .back-btn { color: var(--primary); cursor: pointer; font-size: 14px; margin-bottom: 20px; display: inline-block; font-weight: 600; }
+        .hidden { display: none; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .error-msg { color: #FF3B30; background: #FFF2F2; padding: 15px; border-radius: 10px; font-size: 14px; margin-top: 20px; line-height: 1.4; }
+    </style>
+</head>
+<body>
 
-        .app-container { width: 90%; max-width: 500px; padding-top: 10vh; }
+<div class="app-container">
+    <h1 style="text-align:center; font-size:26px; margin-bottom:40px;">日语<span style="color:var(--primary)">搭配</span>联想家</h1>
+    <div class="search-box">
+        <input type="text" id="keywordInput" placeholder="输入关键词，如：歯、会議..." onkeypress="if(event.keyCode==13) doActionSearch()">
+        <button class="search-btn" onclick="doActionSearch()">联想</button>
+    </div>
+    <div id="page-1">
+        <div class="scene-entry" onclick="showActions('日常生活')">
+            <span class="icon">🏠</span><span class="text">日常生活</span>
+        </div>
+        <div class="scene-entry" onclick="showActions('工作场合')">
+            <span class="icon">💼</span><span class="text">工作场合</span>
+        </div>
+        <div class="scene-entry" onclick="showActions('旅行远足')">
+            <span class="icon">✈️</span><span class="text">旅行远足</span>
+        </div>
+    </div>
+    <div id="page-2" class="hidden">
+        <span class="back-btn" onclick="toPage(1)">← 返回主页</span>
+        <h2 id="scene-title" style="margin-bottom:20px;"></h2>
+        <div id="action-container" class="action-list"></div>
+    </div>
+    <div id="page-3" class="hidden">
+        <span class="back-btn" onclick="toPage(2)">← 返回列表</span>
+        <div id="result-list"></div>
+    </div>
+</div>
 
-        /* 搜索框 (图片同款设计) */
-        .search-box { position: relative; margin-bottom: 50px; }
-        #keywordInput { 
-            width: 100%; padding: 18px 25px; border-radius: 40px; border: none; 
-            background: white; box-shadow: 0 10px 30px rgba(0,0,0,0.05); font-size: 17px; outline: none; box-sizing: border-box;
-        }
-        .search-btn { 
-            position: absolute; right: 8px; top: 7px; background: var(--primary); 
-            color: white; border: none; padding: 11px 24px; border-radius: 30px; font-weight: 600; cursor: pointer; 
-        }
+<script>
+    const API_KEY = 'sk-7d63bfe034c8430eb76bac0f9e00ce5b';
+    const API_URL = 'https://api.deepseek.com/chat/completions';
+    window.currentAudio = null;
 
-        /* 第一页：大板块按钮 */
-        .scene-entry { 
-            background: white; padding: 25px; border-radius: 20px; margin-bottom: 20px;
-            display: flex; align-items: center; cursor: pointer; transition: 0.3s;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
-        }
-        .scene-entry:active { transform: scale(0.98); background: #f9f9f9; }
-        .scene-entry .icon { font-size: 30px; margin-right: 20px; }
-        .scene-entry .text { font-size: 18px; font-weight: 600; }
+    const SCENE_DATA = {
+        '日常生活': ['起床', '梳头', '穿衣服', '刷牙', '洗脸', '化妆', '洗澡', '做饭', '散步', '睡觉'],
+        '工作场合': ['开会', '出差', '写邮件', '打电话', '汇报', '加班', '面试', '请假', '接待', '辞职'],
+        '旅行远足': ['登机', '坐车', '野餐', '赏花', '拍照', '预订', '问路', '购物', '换钱', '退房']
+    };
 
-        /* 第二页：动作列表 */
-        .action-list { display: grid; grid-template-columns: 1fr; gap: 12px; }
-        .action-item { 
-            background: white; padding: 18px 25px; border-radius: 15px; 
+    function toPage(num) {
+        document.querySelectorAll('[id^="page-"]').forEach(p => p.classList.add('hidden'));
+        const target = document.getElementById(`page-${num}`);
+        if(target) target.classList.remove('hidden');
+    }
+
+    function showActions(scene) {
+        const container = document.getElementById('action-container');
+        const title = document.getElementById('scene-title');
+        if(!container || !title) return;
+        title.innerText = scene;
+        container.innerHTML = '';
+        SCENE_DATA[scene].forEach(act => {
+            const div = document.createElement('div');
+            div.className = 'action-item';
+            div.innerHTML = `<span>${act}</span><span>→</span>`;
+            div.onclick = () => doActionSearch(act);
+            container.appendChild(div);
+        });
+        toPage(2);
+    }
+
+    async function doActionSearch(manualWord = null) {
+        const word = manualWord || document.getElementById('keywordInput').value.trim();
+        if(!word) return;
+        toPage(3);
+        const list = document.getElementById('result-list');
+        list.innerHTML = '<div style="text-align:center; padding:50px; color:#8e8e93;">AI 正在分析地道搭配...</div>';
+        try {
+            const res = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
+                body: JSON.stringify({
+                    model: "deepseek-chat",
+                    messages: [
+                        {role: "system", content: "你是一个专业的日语老师。返回5个最地道的短语搭配（含助词）。要求：1.汉字必须使用HTML的ruby标签标注平假名。2.严格按JSON数组格式返回：[{\"jp\":\"<ruby>汉<rt>かん</rt>字<rt>じ</rt></ruby>\",\"zh\":\"翻译\"}]。"}, 
+                        {role: "user", content: word}
+                    ]
+                })
+            });
+            const data = await res.json();
+            const content = data.choices[0].message.content.replace(/```json|```/g, '');
+            const phrases = JSON.parse(content);
+            list.innerHTML = '';
+            phrases.forEach(p => {
+                const card = document.createElement('div');
+                card.className = 'phrase-card';
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = p.jp;
+                const rts = tempDiv.querySelectorAll('rt');
+                rts.forEach(rt => rt.remove());
+                const pureText = tempDiv.innerText || tempDiv.textContent;
+                card.onclick = () => speak(pureText);
+                card.innerHTML = `<div><div style="font-size:20px; font-weight:600; line-height:1.8;">${            background: white; padding: 18px 25px; border-radius: 15px; 
             font-size: 16px; font-weight: 500; cursor: pointer; display: flex; justify-content: space-between;
         }
 
